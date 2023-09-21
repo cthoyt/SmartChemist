@@ -5,7 +5,29 @@ import requests
 from smart_chemist.models import PatternMatchingJob, PatternMatchingInputModel, PatternMatchingOutputModel
 
 
-def make_pattern_matching_job(request_data, nof_molecules_allowed: int = 100) -> Type[PatternMatchingJob]:
+def get_smiles_from_request_data(input_string: str) -> str:
+    """Parse an input request string."""
+    if input_string.startswith("chembl.compound:"):
+        chembl_id = input_string.removeprefix("chembl.compound:")
+        url = f"https://www.ebi.ac.uk/chembl/api/data/molecule/{chembl_id}"
+        res = requests.get(url).json()
+        return res["molecule_structures"]["canonical_smiles"]
+    elif input_string.startwith("chebi"):
+        raise NotImplementedError
+    elif input_string.startwith("cas"):
+        raise NotImplementedError
+    elif input_string.startwith("pubchem.compound"):
+        cid = input_string.removeprefix("pubchem.compound:")
+        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/property/CanonicalSMILES/JSON"
+        data = requests.get(url).json()
+        return data["PropertyTable"]["Properties"][0]["CanonicalSMILES"]
+    else:
+        return input_string
+
+
+def make_pattern_matching_job(
+    request_data, nof_molecules_allowed: int = 100
+) -> Type[PatternMatchingJob]:
     """Create a PatternMatchingJob from the request_data.
 
     :param request_data: dict of request data.
@@ -17,24 +39,10 @@ def make_pattern_matching_job(request_data, nof_molecules_allowed: int = 100) ->
 
     job.input_info.input_max_nof_molecules_allowed = nof_molecules_allowed
     if "smiles" in request_data:
-        job.input_info.input_format = 'smiles_list'
-        s = request_data["smiles"]
-        if s.startswith("chembl.compound:"):
-            chembl_id = s.removeprefix("chembl.compound:")
-            url = f"https://www.ebi.ac.uk/chembl/api/data/molecule/{chembl_id}"
-            res = requests.get(url).json()
-            smiles = res["molecule_structures"]["canonical_smiles"]
-        elif s.startwith("chebi"):
-            raise NotImplementedError
-        elif s.startwith("cas"):
-            raise NotImplementedError
-        elif s.startwith("pubchem.compound"):
-            raise NotImplementedError
-        elif s.startwith("drugbank"):
-            raise NotImplementedError
-        else:
-            smiles = s
-        job.input_info.input_string = smiles
+        job.input_info.input_format = "smiles_list"
+        job.input_info.input_string = get_smiles_from_request_data(
+            request_data["smiles"]
+        )
     elif "molecule_file" in request_data:
         file_name = request_data["molecule_file"].name
         if file_name.endswith(".smi"):
