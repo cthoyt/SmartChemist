@@ -1,5 +1,7 @@
 from typing import Type
 
+import requests
+
 from smart_chemist.models import PatternMatchingJob, PatternMatchingInputModel, PatternMatchingOutputModel
 
 
@@ -16,7 +18,23 @@ def make_pattern_matching_job(request_data, nof_molecules_allowed: int = 100) ->
     job.input_info.input_max_nof_molecules_allowed = nof_molecules_allowed
     if "smiles" in request_data:
         job.input_info.input_format = 'smiles_list'
-        job.input_info.input_string = request_data["smiles"]
+        s = request_data["smiles"]
+        if s.startswith("chembl.compound:"):
+            chembl_id = s.removeprefix("chembl.compound:")
+            url = f"https://www.ebi.ac.uk/chembl/api/data/molecule/{chembl_id}"
+            res = requests.get(url).json()
+            smiles = res["molecule_structures"]["canonical_smiles"]
+        elif s.startwith("chebi"):
+            raise NotImplementedError
+        elif s.startwith("cas"):
+            raise NotImplementedError
+        elif s.startwith("pubchem.compound"):
+            raise NotImplementedError
+        elif s.startwith("drugbank"):
+            raise NotImplementedError
+        else:
+            smiles = s
+        job.input_info.input_string = smiles
     elif "molecule_file" in request_data:
         file_name = request_data["molecule_file"].name
         if file_name.endswith(".smi"):
