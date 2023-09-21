@@ -1,6 +1,7 @@
 from typing import Type
 
 import requests
+import xml.etree.ElementTree as ET
 
 from smart_chemist.models import PatternMatchingJob, PatternMatchingInputModel, PatternMatchingOutputModel
 
@@ -13,9 +14,13 @@ def get_smiles_from_request_data(input_string: str) -> str:
         res = requests.get(url).json()
         return res["molecule_structures"]["canonical_smiles"]
     elif input_string.startwith("chebi"):
-        raise NotImplementedError
+        chebi_id = input_string.removeprefix("chebi:")
+        chebi_url = f"http://www.ebi.ac.uk/webservices/chebi/2.0/test/getCompleteEntity?chebiId={chebi_id}"
+        response = requests.get(chebi_url)
+        root = ET.fromstring(response.text)
+        return root.find(".//{*}smiles").text
     elif input_string.startwith("cas"):
-        raise NotImplementedError
+        raise NotImplementedError  # could use ChemSpider?
     elif input_string.startwith("pubchem.compound"):
         cid = input_string.removeprefix("pubchem.compound:")
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/property/CanonicalSMILES/JSON"
