@@ -1,0 +1,39 @@
+# Follow guide at https://realpython.com/blog/python/dockerizing-flask-with-compose-and-machine-from-localhost-to-the-cloud/
+
+version: '3'
+
+services:
+  redis:
+    image: redis:4.0.11-alpine
+
+  broker:
+    image: rabbitmq:3.7.7-alpine
+
+  backend:
+    build: .
+    volumes:
+     - .:/app
+    environment:
+      CELERY_BROKER_URL: amqp://broker
+      CELERY_BACKEND_URL: redis://result_backend
+    restart: always
+    command: python manage.py runserver
+    ports:
+      - "8000:8000"
+    depends_on:
+     - broker
+     - redis
+     - worker
+
+  worker:
+    build: .
+    volumes:
+     - .:/app
+    environment:
+      CELERY_BROKER_URL: amqp://broker
+      CELERY_BACKEND_URL: redis://result_backend
+    restart: always
+    command: celery -A smart_chemist_backend worker -O fair --loglevel=INFO
+    depends_on:
+     - broker
+     - redis
